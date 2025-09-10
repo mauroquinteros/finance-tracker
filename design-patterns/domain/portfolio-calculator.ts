@@ -14,7 +14,7 @@ export interface PositionResult {
   symbol: string;
   totalShares: number;
   averageCostPerShare: number; // Precio promedio que pagaste
-  currentPricePerShare: number; // Precio actual de mercado
+  currentPrice: number; // Precio actual de mercado
   totalInvested: number; // Dinero invertido en esta posición
   currentValue: number; // Valor actual de esta posición
   unrealizedPnL: number; // Ganancia/pérdida de esta posición
@@ -22,11 +22,12 @@ export interface PositionResult {
   costBasisMethod: CostBasisMethod;
 }
 
+// TODO: review the fields for this interface
 export interface PortfolioCalculationResult {
   totalInvested: number; // Dinero total invertido en compras
   totalCurrentValue: number; // Valor actual de todas las posiciones
-  unrealizedPnL: number; // Ganancia/pérdida no realizada
-  unrealizedPnLPercentage: number; // Porcentaje de ganancia/pérdida
+  totalUnrealizedPnL: number; // Ganancia/pérdida no realizada
+  totalUnrealizedPnLPercentage: number; // Porcentaje de ganancia/pérdida
   positions: PositionResult[]; // Detalle por cada acción
   calculationMethod: string; // Descripción del método usado
   calculationPeriod: string; // Periodo analizado
@@ -40,45 +41,31 @@ export class PortfolioCalculator {
     movements: Movement[],
     currentPrices?: Map<string, number>
   ): Promise<PortfolioCalculationResult> {
-    // 1. Filtrar solo movimientos de acciones/crypto
+    // 1. Filter to allow only stocks and cryptos movements
     const shareMovements = this.getShareMovements(movements);
 
-    // 2. Aplicar filtros de fecha y símbolo si están configurados
+    // 2. Apply filter for dates and symbol if they're present
     const filteredMovements = this.applyFilters(shareMovements);
 
-    // 3. Calcular posiciones según el método configurado
+    // 3. Calculate positions based on the cost basis method
     const positions = await this.calculatePositions(
       filteredMovements,
       currentPrices
     );
 
-    // 4. Calcular totales
-    const totalInvested = positions.reduce(
-      (sum, pos) => sum + pos.totalInvested,
-      0
-    );
-    const totalCurrentValue = positions.reduce(
-      (sum, pos) => sum + pos.currentValue,
-      0
-    );
-
-    // 5. Calcular P&L según configuración
-    let unrealizedPnL = 0;
-    if (this.config.includeUnrealizedGains) {
-      unrealizedPnL = positions.reduce(
-        (sum, pos) => sum + pos.unrealizedPnL,
-        0
-      );
-    }
-
-    const unrealizedPnLPercentage =
-      totalInvested > 0 ? (unrealizedPnL / totalInvested) * 100 : 0;
+    // 4. Calculate total values
+    const {
+      totalInvested,
+      totalCurrentValue,
+      totalUnrealizedPnL,
+      totalUnrealizedPnLPercentage,
+    } = this.calculatePortfolio(positions);
 
     return {
       totalInvested,
       totalCurrentValue,
-      unrealizedPnL,
-      unrealizedPnLPercentage,
+      totalUnrealizedPnL,
+      totalUnrealizedPnLPercentage,
       positions,
       calculationMethod: this.getMethodDescription(),
       calculationPeriod: this.getPeriodDescription(),
@@ -120,11 +107,40 @@ export class PortfolioCalculator {
     return filteredMovements;
   }
 
+  private calculatePortfolio(positions: PositionResult[]) {
+    const totalInvested = positions.reduce((sum, pos) => {
+      const v = Number(pos.totalInvested) || 0;
+      return sum + v;
+    }, 0);
+
+    const totalCurrentValue = positions.reduce((sum, pos) => {
+      const v = Number(pos.currentValue) || 0;
+      return sum + v;
+    }, 0);
+
+    const totalUnrealizedPnL = this.config.includeUnrealizedGains
+      ? positions.reduce((sum, pos) => {
+          const v = Number(pos.unrealizedPnL) || 0;
+          return sum + v;
+        }, 0)
+      : 0;
+
+    const totalUnrealizedPnLPercentage =
+      totalInvested > 0 ? (totalUnrealizedPnL / totalInvested) * 100 : 0;
+
+    return {
+      totalInvested,
+      totalCurrentValue,
+      totalUnrealizedPnL,
+      totalUnrealizedPnLPercentage,
+    };
+  }
+
   private async calculatePositions(
     movements: ShareBasedMovement[],
     currentPrices?: Map<string, number>
   ): Promise<PositionResult[]> {
-    // Agrupar movimientos por símbolo
+    // 1. Group movements by symbol
     const positionMap = new Map<string, ShareBasedMovement[]>();
 
     movements.forEach((movement) => {
@@ -133,9 +149,9 @@ export class PortfolioCalculator {
       positionMap.set(movement.symbol, positionsBySymbol);
     });
 
-    // Calcular cada posición
     const positions: PositionResult[] = [];
 
+    // 2. Calculate position for each symbol
     for (const [symbol, symbolMovements] of positionMap.entries()) {
       const currentPrice =
         currentPrices?.get(symbol) || this.getLastKnownPrice(symbolMovements);
@@ -155,67 +171,60 @@ export class PortfolioCalculator {
   private calculatePositionByMethod(
     symbol: string,
     movements: ShareBasedMovement[],
-    currentPricePerShare: number
+    currentPrice: number
   ): PositionResult {
-    // Para AVERAGE COST (más común en análisis personal)
+    // for Average Cost (mostly common for personal analysis)
     if (this.config.costBasisMethod === "AVERAGE") {
-      return this.calculateAverageCostPosition(
-        symbol,
-        movements,
-        currentPricePerShare
-      );
+      return this.calculateAverageCostPosition(symbol, movements, currentPrice);
     }
 
     // Para FIFO y LIFO necesitaríamos tracking más complejo de lotes
     // Por simplicidad, usamos average cost como fallback
     // En implementación real, aquí implementarías la lógica completa
-    return this.calculateAverageCostPosition(
-      symbol,
-      movements,
-      currentPricePerShare
-    );
+    return this.calculateAverageCostPosition(symbol, movements, currentPrice);
   }
 
   private calculateAverageCostPosition(
     symbol: string,
     movements: ShareBasedMovement[],
-    currentPricePerShare: number
+    currentPrice: number
   ): PositionResult {
-    // Calcular totales
     const totalShares = movements.reduce((sum, m) => sum + m.getQuantity(), 0);
     const totalInvested = movements.reduce(
       (sum, m) => sum + m.investedAmount,
       0
     );
 
-    // Precio promedio pagado por acción
-    const averageCostPerShare = totalInvested / totalShares;
+    // Guard against division by zero / invalid numbers
+    const averageCostPerShare =
+      totalShares > 0 ? totalInvested / totalShares : 0;
 
-    // Valor actual
-    const currentValue = totalShares * currentPricePerShare;
+    const currentValue = totalShares * (Number(currentPrice) || 0);
 
-    // Ganancia/pérdida no realizada
-    const unrealizedPnL = currentValue - totalInvested;
-    const unrealizedPnLPercentage = (unrealizedPnL / totalInvested) * 100;
+    const unrealizedPnL = this.config.includeUnrealizedGains
+      ? currentValue - totalInvested
+      : 0;
+    const unrealizedPnLPercentage =
+      this.config.includeUnrealizedGains && totalInvested > 0
+        ? (unrealizedPnL / totalInvested) * 100
+        : 0;
 
     return {
       symbol,
       totalShares,
       averageCostPerShare,
-      currentPricePerShare,
+      currentPrice,
       totalInvested,
       currentValue,
-      unrealizedPnL: this.config.includeUnrealizedGains ? unrealizedPnL : 0,
-      unrealizedPnLPercentage: this.config.includeUnrealizedGains
-        ? unrealizedPnLPercentage
-        : 0,
+      unrealizedPnL,
+      unrealizedPnLPercentage,
       costBasisMethod: this.config.costBasisMethod,
     };
   }
 
   private getLastKnownPrice(movements: ShareBasedMovement[]): number {
-    // Si no hay precio actual, usa el precio de la última compra
-    const sortedByDate = movements.sort(
+    // Don't mutate input array; copy before sorting
+    const sortedByDate = [...movements].sort(
       (a, b) => b.date.getTime() - a.date.getTime()
     );
     return sortedByDate[0]?.price || 0;

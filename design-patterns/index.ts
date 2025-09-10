@@ -104,7 +104,7 @@ async function main() {
   ];
 
   const currentPrices = new Map([
-    ["V", 342.69], // Subió desde las compras
+    ["V", 338.12], // Subió desde las compras
     ["AXP", 326.86], // También subió
   ]);
 
@@ -117,15 +117,15 @@ async function main() {
   console.log(`📈 Valor Actual: $${basicResult.totalCurrentValue.toFixed(2)}`);
   console.log(
     `${
-      basicResult.unrealizedPnL >= 0 ? "🟢" : "🔴"
-    } P&L: $${basicResult.unrealizedPnL.toFixed(
+      basicResult.totalUnrealizedPnL >= 0 ? "🟢" : "🔴"
+    } P&L: $${basicResult.totalUnrealizedPnL.toFixed(
       2
-    )} (${basicResult.unrealizedPnLPercentage.toFixed(2)}%)`
+    )} (${basicResult.totalUnrealizedPnLPercentage.toFixed(2)}%)`
   );
   console.log(`📋 Método: ${basicResult.calculationMethod}`);
   console.log(`📅 Periodo: ${basicResult.calculationPeriod}\n`);
 
-  console.log("\n🍎 ANÁLISIS DE VISA ESPECÍFICAMENTE\n");
+  console.log("\nANÁLISIS DE VISA ESPECÍFICAMENTE\n");
   const stockCalculator = new PortfolioCalculatorBuilder()
     .setSymbol("V")
     .build();
@@ -134,18 +134,18 @@ async function main() {
   if (stockResult.positions.length > 0) {
     const position = stockResult.positions[0];
     console.log(`Posición en VISA:`);
-    console.log(`Shares: ${position.totalShares.toFixed(4)}`);
+    console.log(`Shares: ${position.totalShares.toFixed(5)}`);
     console.log(`Total Invertido: $${stockResult.totalInvested.toFixed(2)}`);
     console.log(
       `Precio Promedio Pagado: $${position.averageCostPerShare.toFixed(2)}`
     );
-    console.log(`Precio Actual: $${position.currentPricePerShare.toFixed(2)}`);
+    console.log(`Precio Actual: $${position.currentPrice.toFixed(2)}`);
     console.log(
       `${
-        stockResult.unrealizedPnL >= 0 ? "🟢" : "🔴"
-      } P&L: $${stockResult.unrealizedPnL.toFixed(
+        stockResult.totalUnrealizedPnL >= 0 ? "🟢" : "🔴"
+      } P&L: $${stockResult.totalUnrealizedPnL.toFixed(
         2
-      )} (${stockResult.unrealizedPnLPercentage.toFixed(2)}%)`
+      )} (${stockResult.totalUnrealizedPnLPercentage.toFixed(2)}%)`
     );
   } else {
     console.log("❌ No se encontraron posiciones de VISA");
@@ -172,13 +172,13 @@ async function main() {
     console.log(
       `Precio Promedio Pagado: $${position.averageCostPerShare.toFixed(2)}`
     );
-    console.log(`Precio Actual: $${position.currentPricePerShare.toFixed(2)}`);
+    console.log(`Precio Actual: $${position.currentPrice.toFixed(2)}`);
     console.log(
       `${
-        quarterlyResult.unrealizedPnL >= 0 ? "🟢" : "🔴"
-      } P&L: $${quarterlyResult.unrealizedPnL.toFixed(
+        quarterlyResult.totalUnrealizedPnL >= 0 ? "🟢" : "🔴"
+      } P&L: $${quarterlyResult.totalUnrealizedPnL.toFixed(
         2
-      )} (${quarterlyResult.unrealizedPnLPercentage.toFixed(2)}%)`
+      )} (${quarterlyResult.totalUnrealizedPnLPercentage.toFixed(2)}%)`
     );
   } else {
     console.log("❌ No se encontraron posiciones de VISA");

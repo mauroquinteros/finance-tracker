@@ -4,7 +4,10 @@ import {
   ShareMovementData,
 } from "./domain/movement.interface";
 import { PortfolioCalculatorBuilder } from "./domain/portfolio-builder";
+import { StockProvider } from "./domain/price-provider";
 import { MovementFactory } from "./movement-factory";
+import { AlphaVantageAdapter, AlphaVantageApi } from "./services/alpha-vantage-provider";
+import { YahooFinanceAdatper, YahooFinanceApi } from "./services/yahoo-provider";
 
 async function main() {
   const stockData: ShareMovementData = {
@@ -103,10 +106,12 @@ async function main() {
     }),
   ];
 
-  const currentPrices = new Map([
-    ["V", 338.12], // Subió desde las compras
-    ["AXP", 326.86], // También subió
-  ]);
+  const provider: StockProvider = new YahooFinanceAdatper(new YahooFinanceApi())
+  // const provider: StockProvider = new AlphaVantageAdapter(new AlphaVantageApi())
+  const currentProviderData = await provider.getBatchStockData(["V", "AXP"])
+
+  const providerPrices = currentProviderData.map(data => [data.symbol, data.price]) as [string, number][]
+  const currentPrices = new Map(providerPrices);
 
   console.log("\n📊 ANÁLISIS BÁSICO DEL PORTFOLIO\n");
 

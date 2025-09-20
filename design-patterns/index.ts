@@ -1,58 +1,84 @@
-import {
-  DepositMovementData,
-  DividendMovementData,
-  ShareMovementData,
-} from "./domain/movement.interface";
+import { MovementType } from "./domain/movement";
+import { MovementData } from "./domain/movement.interface";
+import { MovementService } from "./domain/movement-processor";
 import { PortfolioCalculatorBuilder } from "./domain/portfolio-builder";
 import { StockProvider } from "./domain/price-provider";
 import { MovementFactory } from "./movement-factory";
-import { AlphaVantageAdapter, AlphaVantageApi } from "./services/alpha-vantage-provider";
-import { YahooFinanceAdatper, YahooFinanceApi } from "./services/yahoo-provider";
+import {
+  AlphaVantageAdapter,
+  AlphaVantageApi,
+} from "./services/alpha-vantage-provider";
+import {
+  YahooFinanceAdatper,
+  YahooFinanceApi,
+} from "./services/yahoo-provider";
 
 async function main() {
-  const stockData: ShareMovementData = {
-    id: "stock001",
-    symbol: "AAPL",
-    investedAmount: 200,
-    price: 201.92,
-    fee: 0.15,
-  };
+  console.log("\nFACTORY METHOD AND MOVEMENT PROCESSOR - DEMO BÁSICA\n");
 
-  const stockMovement = MovementFactory.createMovement("STOCK", stockData);
-  console.log(stockMovement.getDisplayInfo());
+  const movementService = new MovementService(true);
 
-  const cryptoData: ShareMovementData = {
-    id: "crypto001",
-    symbol: "BTCUSD",
-    investedAmount: 861.5,
-    price: 95815.8,
-    fee: 8.62,
-  };
+  const movementsData: { type: MovementType; data: MovementData }[] = [
+    {
+      type: "STOCK",
+      data: {
+        id: "stock001",
+        symbol: "AAPL",
+        investedAmount: 200,
+        price: 201.92,
+        fee: 0.15,
+      },
+    },
+    {
+      type: "STOCK",
+      data: {
+        id: "stock002",
+        symbol: "AAPL",
+        investedAmount: 200,
+        price: 201.92,
+        fee: 0.15,
+      },
+    },
+    {
+      type: "CRYPTO",
+      data: {
+        id: "crypto001",
+        symbol: "BTCUSD",
+        investedAmount: 861.5,
+        price: 95815.8,
+        fee: 8.62,
+      },
+    },
+    {
+      type: "DIVIDEND",
+      data: {
+        id: "div001",
+        symbol: "VOO",
+        grossAmount: 8.0,
+        taxWithheld: 2.4,
+      },
+    },
+    {
+      type: "DEPOSIT",
+      data: {
+        id: "dep001",
+        grossAmount: 706.3,
+        fee: 6.3,
+        depositMethod: "BANK_TRANSFER",
+      },
+    },
+  ];
 
-  const cryptoMovement = MovementFactory.createCryptoMovement(cryptoData);
-  console.log(cryptoMovement.getDisplayInfo());
+  console.log("🔄 Processing movements with full logging:\n");
 
-  const dividendData: DividendMovementData = {
-    id: "div001",
-    symbol: "VOO",
-    grossAmount: 8.0,
-    taxWithheld: 2.4,
-  };
+  try {
+    await movementService.processMovements(movementsData);
+    console.log("\n📊 Processing completed successfully!");
+  } catch (error) {
+    console.error("❌ Processing failed:", error);
+  }
 
-  const dividendMovement = MovementFactory.createDividendMovement(dividendData);
-  console.log(dividendMovement.getDisplayInfo());
-
-  const depositData: DepositMovementData = {
-    id: "dep001",
-    grossAmount: 706.3,
-    fee: 6.3,
-    depositMethod: "BANK_TRANSFER",
-  };
-
-  const depositMovement = MovementFactory.createDepositMovement(depositData);
-  console.log(depositMovement.getDisplayInfo());
-
-  console.log("\nPORTFOLIO CALCULATOR BUILDER - DEMO COMPLETA\n");
+  console.log("\n\nPORTFOLIO CALCULATOR BUILDER - DEMO COMPLETA\n");
 
   // Crear movimientos de ejemplo usando tu Factory existente
   const movements = [
@@ -106,11 +132,16 @@ async function main() {
     }),
   ];
 
-  const provider: StockProvider = new YahooFinanceAdatper(new YahooFinanceApi())
+  const provider: StockProvider = new YahooFinanceAdatper(
+    new YahooFinanceApi()
+  );
   // const provider: StockProvider = new AlphaVantageAdapter(new AlphaVantageApi())
-  const currentProviderData = await provider.getBatchStockData(["V", "AXP"])
+  const currentProviderData = await provider.getBatchStockData(["V", "AXP"]);
 
-  const providerPrices = currentProviderData.map(data => [data.symbol, data.price]) as [string, number][]
+  const providerPrices = currentProviderData.map((data) => [
+    data.symbol,
+    data.price,
+  ]) as [string, number][];
   const currentPrices = new Map(providerPrices);
 
   console.log("\n📊 ANÁLISIS BÁSICO DEL PORTFOLIO\n");
